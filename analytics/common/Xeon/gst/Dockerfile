@@ -2,19 +2,24 @@
 
 FROM centos:7 as build
 
-ARG  VA_SERVING_REPO=https://raw.githubusercontent.com/intel/video-analytics-serving
-ARG  VA_SERVING_TAG="v0.4.1-beta"
+ARG VA_SERVING_REPO=https://github.com/intel/video-analytics-serving
+ARG VA_SERVING_VERSION=0.6.1-beta
+ARG VA_SERVING_TAG=v${VA_SERVING_VERSION}
 
-RUN  mkdir -p /home/vaserving/common/utils && touch /home/vaserving/__init__.py /home/vaserving/common/__init__.py /home/vaserving/common/utils/__init__.py && for x in common/utils/logging.py common/settings.py arguments.py ffmpeg_pipeline.py gstreamer_pipeline.py app_destination.py app_source.py gstreamer_app_destination.py gstreamer_app_source.py model_manager.py pipeline.py pipeline_manager.py pipeline.py schema.py vaserving.py; do curl -sSf -o /home/vaserving/$x -L ${VA_SERVING_REPO}/${VA_SERVING_TAG}/vaserving/$x; done
+ADD ${VA_SERVING_REPO}/archive/refs/tags/${VA_SERVING_TAG}.tar.gz /tmp
+RUN mkdir -p /home/vaserving \
+    && tar -xzf /tmp/${VA_SERVING_TAG}.tar.gz --strip-components=1 -C /home video-analytics-serving-${VA_SERVING_VERSION}/vaserving
+
 COPY *.py /home/
 
 FROM openvisualcloud/xeon-ubuntu1804-analytics-gst:21.6.1
 
-RUN  apt-get update -qq && apt-get install -qq python3-gst-1.0 python3-jsonschema python3-psutil && rm -rf /var/lib/apt/lists/*
+RUN  apt-get update -qq && apt-get install -qq python3-gst-1.0 python3-jsonschema python3-psutil libgstrtspserver-1.0-dev && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /home/ /home/
 ENV  FRAMEWORK=gstreamer
 ENV  PYTHONIOENCODING=UTF-8
+ENV  PYTHONPATH=$PYTHONPATH:/home/vaserving
 
 ####
 ARG  USER=docker
