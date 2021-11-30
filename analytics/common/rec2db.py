@@ -7,6 +7,7 @@ import requests
 import os
 from pathlib import Path
 import probe
+import time
 
 office=list(map(float,env["OFFICE"].split(",")))
 sthost=env["STHOST"]
@@ -18,11 +19,14 @@ class Handler(FileSystemEventHandler):
         self._last_file = None
         self._requests=requests.Session()
         self._last_time = 0
+        self._start_time = None
 
     def on_created(self, event):
         print("on_created: "+event.src_path, flush=True)
         if event.is_directory: return
         if event.src_path.endswith(".png"): return
+        if not self._start_time:
+            _start_time = int(time.time())
         if self._last_file:
             if self._last_file==event.src_path: return
             try:
@@ -40,9 +44,10 @@ class Handler(FileSystemEventHandler):
         stream_time = str(Path(basename.split('_')[-1]).with_suffix(''))
         timestamp = int(int(stream_time)/1000000000 + 0.5)
         if self._last_time == 0:
-            print("Filename, Size (kB), Duration (s), Media duration (s), bitrate (kB/s), Media fps")
+            print("Elapsed Time(s), Filename, Size (kB), Duration (s), Media duration (s), bitrate (kB/s), Media fps")
         duration = timestamp - self._last_time
-        print("{}, {}, {}, {}, {}, {}".format(basename, int(os.path.getsize(filename)/1000), duration, media_duration, bit_rate, media_fps), flush=True)
+        elapsed_time = int(time.time()) - self._start_time
+        print("{}, {}, {}, {}, {}, {}, {}".format(elapsed_time, basename, int(os.path.getsize(filename)/1000), duration, media_duration, bit_rate, media_fps), flush=True)
         self._last_time = timestamp
         with open(filename,"rb") as fd:
             r=self._requests.post(sthost,data={
